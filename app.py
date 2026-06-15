@@ -1,91 +1,34 @@
 import streamlit as st
 import tensorflow as tf
-from tensorflow.keras.datasets import imdb
-from tensorflow.keras.preprocessing.sequence import pad_sequences
-from tensorflow.keras.models import Sequential
-from tensorflow.keras.layers import Embedding, LSTM, Dense
+import numpy as np
 
-st.set_page_config(page_title="AI Sentiment Analyzer")
+st.set_page_config(page_title="TensorFlow Demo App")
 
-st.title("AI Sentiment Analysis App")
-st.write("Enter a movie review and predict whether it is Positive or Negative.")
+st.title("AI Text Sentiment Demo")
 
-VOCAB_SIZE = 10000
-MAX_LEN = 200
+st.write("Enter a sentence:")
 
-@st.cache_resource
-def train_model():
+text = st.text_area("Text")
 
-    (x_train, y_train), (x_test, y_test) = imdb.load_data(
-        num_words=VOCAB_SIZE
-    )
+# Simple TensorFlow model
+model = tf.keras.Sequential([
+    tf.keras.layers.Input(shape=(1,)),
+    tf.keras.layers.Dense(8, activation="relu"),
+    tf.keras.layers.Dense(1, activation="sigmoid")
+])
 
-    x_train = pad_sequences(
-        x_train,
-        maxlen=MAX_LEN,
-        padding="post",
-        truncating="post"
-    )
-
-    model = Sequential([
-        Embedding(VOCAB_SIZE, 32, input_length=MAX_LEN),
-        LSTM(32),
-        Dense(24, activation="relu"),
-        Dense(1, activation="sigmoid")
-    ])
-
-    model.compile(
-        optimizer="adam",
-        loss="binary_crossentropy",
-        metrics=["accuracy"]
-    )
-
-    model.fit(
-        x_train,
-        y_train,
-        epochs=2,
-        batch_size=128,
-        verbose=0
-    )
-
-    word_index = imdb.get_word_index()
-
-    return model, word_index
-
-
-model, word_index = train_model()
-
-review = st.text_area("Enter Review")
-
-if st.button("Predict"):
-
-    if review.strip() == "":
+if st.button("Analyze"):
+    if text.strip() == "":
         st.warning("Please enter some text.")
     else:
+        # Dummy feature based on text length
+        feature = np.array([[len(text)]], dtype=np.float32)
 
-        words = review.lower().split()
+        prediction = model(feature, training=False).numpy()[0][0]
 
-        encoded = []
+        st.success(f"Prediction Score: {prediction:.4f}")
 
-        for word in words:
-            encoded.append(word_index.get(word, 2) + 3)
-
-        padded = pad_sequences(
-            [encoded],
-            maxlen=MAX_LEN,
-            padding="post",
-            truncating="post"
-        )
-
-        prediction = model.predict(padded, verbose=0)[0][0]
-
-        st.subheader("Result")
-
-        if prediction >= 0.5:
-            st.success(
-                f"Positive Review ({prediction:.2%})"
-            )
+        if prediction > 0.5:
+            st.write("Positive")
         else:
-            st.error(
-                f"Negative Review ({(1-prediction):.2%})"
-            )
+            st.write("Negative")
