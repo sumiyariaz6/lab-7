@@ -1,12 +1,23 @@
 import streamlit as st
 import tensorflow as tf
-import tensorflow_hub as hub
 import numpy as np
 import cv2
 from PIL import Image
 
 # -----------------------------
-# Load COCO labels (90 classes)
+# Load FREE SSD MobileNet model (Kaggle/TensorFlow official)
+# -----------------------------
+@st.cache_resource
+def load_model():
+    model = tf.saved_model.load(
+        "https://tfhub.dev/tensorflow/ssd_mobilenet_v2/2?tf-hub-format=compressed"
+    )
+    return model
+
+model = load_model()
+
+# -----------------------------
+# COCO Labels (90 classes)
 # -----------------------------
 LABELS = {
     1: 'person', 2: 'bicycle', 3: 'car', 4: 'motorcycle', 5: 'airplane',
@@ -17,29 +28,18 @@ LABELS = {
 }
 
 # -----------------------------
-# Load Model (FREE TensorFlow Hub)
+# Detection function
 # -----------------------------
-@st.cache_resource
-def load_model():
-    model = hub.load("https://tfhub.dev/tensorflow/ssd_mobilenet_v2/2")
-    return model
-
-model = load_model()
-
-# -----------------------------
-# Detection Function
-# -----------------------------
-def detect_objects(image):
+def detect(image):
     img = np.array(image)
-
     input_tensor = tf.convert_to_tensor(img)
     input_tensor = input_tensor[tf.newaxis, ...]
 
-    detector = model(input_tensor)
+    detections = model(input_tensor)
 
-    boxes = detector["detection_boxes"][0].numpy()
-    classes = detector["detection_classes"][0].numpy().astype(int)
-    scores = detector["detection_scores"][0].numpy()
+    boxes = detections["detection_boxes"][0].numpy()
+    classes = detections["detection_classes"][0].numpy().astype(int)
+    scores = detections["detection_scores"][0].numpy()
 
     h, w, _ = img.shape
 
@@ -60,20 +60,18 @@ def detect_objects(image):
 
     return img
 
-
 # -----------------------------
 # Streamlit UI
 # -----------------------------
-st.title("🔍 AI Object Detection App (TensorFlow)")
-st.write("Upload an image and detect objects using a free pretrained model.")
+st.title("🔍 AI Object Detection (TensorFlow - Free Model)")
+st.write("Upload image and detect objects (no API key, fully free).")
 
-uploaded_file = st.file_uploader("Upload Image", type=["jpg", "jpeg", "png"])
+file = st.file_uploader("Upload Image", type=["jpg", "jpeg", "png"])
 
-if uploaded_file is not None:
-    image = Image.open(uploaded_file)
-
+if file:
+    image = Image.open(file)
     st.image(image, caption="Original Image", use_container_width=True)
 
     if st.button("Detect Objects"):
-        result = detect_objects(image)
+        result = detect(image)
         st.image(result, caption="Detected Objects", use_container_width=True)
