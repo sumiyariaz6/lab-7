@@ -1,37 +1,30 @@
 import streamlit as st
-from sklearn.feature_extraction.text import TfidfVectorizer
-from sklearn.linear_model import LogisticRegression
+import tensorflow as tf
+import numpy as np
 
-st.title("AI Sentiment Analysis App (Free Deploy)")
+st.title("TensorFlow Sentiment Demo App")
 
-# Sample training data
-texts = [
-    "I love this product",
-    "This is amazing",
-    "Very good experience",
-    "I hate this",
-    "Very bad service",
-    "Worst experience"
-]
+st.write("Enter text and get AI prediction")
 
-labels = [1, 1, 1, 0, 0, 0]
+# Simple fixed TensorFlow model (NO training on cloud)
+model = tf.keras.Sequential([
+    tf.keras.layers.Input(shape=(1,)),
+    tf.keras.layers.Dense(4, activation="relu"),
+    tf.keras.layers.Dense(1, activation="sigmoid")
+])
 
-vectorizer = TfidfVectorizer()
-X = vectorizer.fit_transform(texts)
-
-model = LogisticRegression()
-model.fit(X, labels)
-
-user_input = st.text_area("Enter text")
+text = st.text_area("Enter text")
 
 if st.button("Predict"):
-    if user_input.strip() == "":
+    if text.strip() == "":
         st.warning("Please enter text")
     else:
-        vec = vectorizer.transform([user_input])
-        pred = model.predict(vec)[0]
+        # simple numeric feature (safe for demo)
+        feature = np.array([[len(text)]], dtype=np.float32)
 
-        if pred == 1:
-            st.success("Positive 😊")
+        prediction = model(feature, training=False).numpy()[0][0]
+
+        if prediction > 0.5:
+            st.success(f"Positive 😊 Score: {prediction:.2f}")
         else:
-            st.error("Negative 😞")
+            st.error(f"Negative 😞 Score: {prediction:.2f}")
