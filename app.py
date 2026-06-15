@@ -1,37 +1,79 @@
 import streamlit as st
-from sklearn.feature_extraction.text import TfidfVectorizer
-from sklearn.linear_model import LogisticRegression
+import tensorflow as tf
+import tensorflow_hub as hub
+import numpy as np
+import cv2
+from PIL import Image
 
-st.title("AI Sentiment Analysis App")
+# -----------------------------
+# Load COCO labels (90 classes)
+# -----------------------------
+LABELS = {
+    1: 'person', 2: 'bicycle', 3: 'car', 4: 'motorcycle', 5: 'airplane',
+    6: 'bus', 7: 'train', 8: 'truck', 9: 'boat', 10: 'traffic light',
+    17: 'cat', 18: 'dog', 19: 'horse', 20: 'sheep', 21: 'cow',
+    44: 'bottle', 47: 'cup', 64: 'keyboard', 65: 'cell phone',
+    72: 'tv'
+}
 
-# training data (mini AI model)
-texts = [
-    "I love this",
-    "This is amazing",
-    "Very good",
-    "I hate this",
-    "Very bad",
-    "Worst experience"
-]
+# -----------------------------
+# Load Model (FREE TensorFlow Hub)
+# -----------------------------
+@st.cache_resource
+def load_model():
+    model = hub.load("https://tfhub.dev/tensorflow/ssd_mobilenet_v2/2")
+    return model
 
-labels = [1, 1, 1, 0, 0, 0]
+model = load_model()
 
-vectorizer = TfidfVectorizer()
-X = vectorizer.fit_transform(texts)
+# -----------------------------
+# Detection Function
+# -----------------------------
+def detect_objects(image):
+    img = np.array(image)
 
-model = LogisticRegression()
-model.fit(X, labels)
+    input_tensor = tf.convert_to_tensor(img)
+    input_tensor = input_tensor[tf.newaxis, ...]
 
-user_input = st.text_area("Enter text")
+    detector = model(input_tensor)
 
-if st.button("Predict"):
-    if user_input.strip():
-        x = vectorizer.transform([user_input])
-        pred = model.predict(x)[0]
+    boxes = detector["detection_boxes"][0].numpy()
+    classes = detector["detection_classes"][0].numpy().astype(int)
+    scores = detector["detection_scores"][0].numpy()
 
-        if pred == 1:
-            st.success("Positive 😊")
-        else:
-            st.error("Negative 😞")
-    else:
-        st.warning("Please enter text")
+    h, w, _ = img.shape
+
+    for i in range(len(scores)):
+        if scores[i] > 0.5:
+            cls = classes[i]
+            label = LABELS.get(cls, str(cls))
+
+            y1, x1, y2, x2 = boxes[i]
+            x1, x2 = int(x1 * w), int(x2 * w)
+            y1, y2 = int(y1 * h), int(y2 * h)
+
+            cv2.rectangle(img, (x1, y1), (x2, y2), (0, 255, 0), 2)
+            cv2.putText(img, f"{label} {scores[i]:.2f}",
+                        (x1, y1 - 10),
+                        cv2.FONT_HERSHEY_SIMPLEX,
+                        0.5, (0, 255, 0), 2)
+
+    return img
+
+
+# -----------------------------
+# Streamlit UI
+# -----------------------------
+st.title("🔍 AI Object Detection App (TensorFlow)")
+st.write("Upload an image and detect objects using a free pretrained model.")
+
+uploaded_file = st.file_uploader("Upload Image", type=["jpg", "jpeg", "png"])
+
+if uploaded_file is not None:
+    image = Image.open(uploaded_file)
+
+    st.image(image, caption="Original Image", use_container_width=True)
+
+    if st.button("Detect Objects"):
+        result = detect_objects(image)
+        st.image(result, caption="Detected Objects", use_container_width=True)
