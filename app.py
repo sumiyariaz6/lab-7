@@ -1,23 +1,22 @@
 import streamlit as st
 import tensorflow as tf
+import tensorflow_hub as hub
 import numpy as np
 import cv2
 from PIL import Image
 
 # -----------------------------
-# Load FREE SSD MobileNet model (Kaggle/TensorFlow official)
+# Load model correctly (TF Hub way)
 # -----------------------------
 @st.cache_resource
 def load_model():
-    model = tf.saved_model.load(
-        "https://tfhub.dev/tensorflow/ssd_mobilenet_v2/2?tf-hub-format=compressed"
-    )
+    model = hub.load("https://tfhub.dev/tensorflow/ssd_mobilenet_v2/2")
     return model
 
 model = load_model()
 
 # -----------------------------
-# COCO Labels (90 classes)
+# COCO Labels
 # -----------------------------
 LABELS = {
     1: 'person', 2: 'bicycle', 3: 'car', 4: 'motorcycle', 5: 'airplane',
@@ -32,14 +31,15 @@ LABELS = {
 # -----------------------------
 def detect(image):
     img = np.array(image)
+
     input_tensor = tf.convert_to_tensor(img)
     input_tensor = input_tensor[tf.newaxis, ...]
 
-    detections = model(input_tensor)
+    outputs = model(input_tensor)
 
-    boxes = detections["detection_boxes"][0].numpy()
-    classes = detections["detection_classes"][0].numpy().astype(int)
-    scores = detections["detection_scores"][0].numpy()
+    boxes = outputs["detection_boxes"][0].numpy()
+    classes = outputs["detection_classes"][0].numpy().astype(int)
+    scores = outputs["detection_scores"][0].numpy()
 
     h, w, _ = img.shape
 
@@ -61,10 +61,10 @@ def detect(image):
     return img
 
 # -----------------------------
-# Streamlit UI
+# UI
 # -----------------------------
-st.title("🔍 AI Object Detection (TensorFlow - Free Model)")
-st.write("Upload image and detect objects (no API key, fully free).")
+st.title("🔍 AI Object Detection (Free TensorFlow Model)")
+st.write("Upload image and detect objects (NO API KEY).")
 
 file = st.file_uploader("Upload Image", type=["jpg", "jpeg", "png"])
 
