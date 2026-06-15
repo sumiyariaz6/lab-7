@@ -1,6 +1,7 @@
 streamlit
-tensorflow==2.13.0
-tensorflow-hub
-numpy
+torch
+torchvision
 opencv-python-headless
 pillow
+numpy
+pandas
